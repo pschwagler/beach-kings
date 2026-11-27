@@ -198,9 +198,10 @@ export default function SessionBottomSheet({
     if (copyingResultsRef.current) return;
     copyingResultsRef.current = true;
     setIsCopyingResults(true);
-    await hapticLight();
     try {
-      await Clipboard.setStringAsync(formatSessionResults(resultsSummary));
+      await hapticLight();
+      const copied = await Clipboard.setStringAsync(formatSessionResults(resultsSummary));
+      if (!copied) throw new Error('Clipboard write failed');
       onClose();
       Alert.alert('Results copied', 'The session results are ready to paste.');
     } catch {

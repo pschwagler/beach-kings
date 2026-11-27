@@ -137,8 +137,9 @@ self-declared fallback without collecting an exact birthdate.
 ### IOS-009 — Production push credential
 
 - [ ] Enable Expo push access-token security, store `EXPO_ACCESS_TOKEN` only in
-  protected deployment configuration, and prove delivery using IOS-006's
-  physical-device matrix.
+  protected deployment configuration, and prove delivery using the
+  [single-account push test](../../../deployment/release-verification.md#verify-ios-push-delivery-for-one-account)
+  and IOS-006's physical-device matrix.
 
 ### IOS-010 — Minimal crash reporting
 
