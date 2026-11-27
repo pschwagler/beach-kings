@@ -186,6 +186,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-beachkings}:${POSTGRES_PASSWORD:-beachkings}@postgres:5432/${POSTGRES_DB:-beachkings}
       - PUSH_DELIVERY_ENABLED=${PUSH_DELIVERY_ENABLED:-false}
       - PUSH_DELIVERY_TEST_USER_ID=${PUSH_DELIVERY_TEST_USER_ID:-}
+      - PUSH_DELIVERY_START_AT=${PUSH_DELIVERY_START_AT:-}
       - PUSH_MAX_ATTEMPTS=${PUSH_MAX_ATTEMPTS:-5}
       - EXPO_ACCESS_TOKEN=${EXPO_ACCESS_TOKEN:-}
     depends_on:

@@ -1,5 +1,6 @@
 """Pure and provider-boundary tests for durable push delivery."""
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -146,9 +147,60 @@ async def test_worker_rejects_combined_delivery_modes_before_opening_session(mon
     session_factory.assert_not_called()
 
 
+@pytest.mark.parametrize(("global_enabled", "test_user_id"), [("true", ""), ("false", "42")])
+@pytest.mark.parametrize(
+    "start_at",
+    [
+        None,
+        "",
+        "not-a-timestamp",
+        "2026-01-01",
+        "2026-01-01T12:00:00",
+        "2026-02-30T12:00:00Z",
+        "2026-01-01T12:00:00+01:99",
+        "0001-01-01T00:00:00+01:00",
+    ],
+)
+@pytest.mark.asyncio
+async def test_active_worker_requires_valid_start_at_before_opening_session(
+    monkeypatch, global_enabled, test_user_id, start_at
+):
+    monkeypatch.setenv("PUSH_DELIVERY_ENABLED", global_enabled)
+    monkeypatch.setenv("PUSH_DELIVERY_TEST_USER_ID", test_user_id)
+    monkeypatch.setenv("EXPO_ACCESS_TOKEN", "synthetic")
+    if start_at is None:
+        monkeypatch.delenv("PUSH_DELIVERY_START_AT", raising=False)
+    else:
+        monkeypatch.setenv("PUSH_DELIVERY_START_AT", start_at)
+    session_factory = MagicMock()
+
+    with pytest.raises(RuntimeError, match="requires PUSH_DELIVERY_START_AT"):
+        await push_worker.run_forever(session_factory)
+
+    session_factory.assert_not_called()
+
+
+@pytest.mark.parametrize("start_at", ["2026-01-01T12:00:00Z", "2026-01-01T07:00:00-05:00"])
+def test_worker_normalizes_start_at_to_utc(monkeypatch, start_at):
+    monkeypatch.setenv("PUSH_DELIVERY_ENABLED", "true")
+    monkeypatch.delenv("PUSH_DELIVERY_TEST_USER_ID", raising=False)
+    monkeypatch.setenv("EXPO_ACCESS_TOKEN", "synthetic")
+    monkeypatch.setenv("PUSH_DELIVERY_START_AT", start_at)
+
+    config = push_worker.validate_worker_config()
+
+    assert config.start_at == datetime(2026, 1, 1, 12, tzinfo=UTC)
+    assert config.start_at.tzinfo is UTC
+
+
 @pytest.mark.asyncio
 async def test_disabled_worker_does_not_open_session(monkeypatch):
-    for name in ("PUSH_DELIVERY_ENABLED", "PUSH_DELIVERY_TEST_USER_ID", "EXPO_ACCESS_TOKEN"):
+    for name in (
+        "PUSH_DELIVERY_ENABLED",
+        "PUSH_DELIVERY_TEST_USER_ID",
+        "PUSH_DELIVERY_START_AT",
+        "EXPO_ACCESS_TOKEN",
+    ):
         monkeypatch.delenv(name, raising=False)
     session_factory = MagicMock()
 

@@ -6,7 +6,7 @@ import os
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -36,6 +36,7 @@ class ExpoRequestError(RuntimeError):
 class WorkerConfig:
     enabled: bool
     test_user_id: int | None
+    start_at: datetime | None
     access_token: str = field(repr=False)
 
 
@@ -56,7 +57,26 @@ def validate_worker_config() -> WorkerConfig:
     access_token = os.getenv("EXPO_ACCESS_TOKEN", "").strip()
     if enabled and not access_token:
         raise RuntimeError("Active push delivery requires EXPO_ACCESS_TOKEN for the push worker")
-    return WorkerConfig(enabled=enabled, test_user_id=test_user_id, access_token=access_token)
+    start_at = None
+    if enabled:
+        raw_start_at = os.getenv("PUSH_DELIVERY_START_AT", "")
+        try:
+            if not re.fullmatch(
+                r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
+                r"(?::[0-9]{2}(?:\.[0-9]{1,6})?)?(?:Z|[+-][0-9]{2}:[0-5][0-9])",
+                raw_start_at,
+            ):
+                raise ValueError
+            start_at = datetime.fromisoformat(raw_start_at).astimezone(UTC)
+        except (ValueError, OverflowError):
+            raise RuntimeError(
+                "Active push delivery requires PUSH_DELIVERY_START_AT as an ISO 8601 "
+                "timestamp with a UTC offset (e.g. 2026-01-01T12:00:00Z)"
+            ) from None
+
+    return WorkerConfig(
+        enabled=enabled, test_user_id=test_user_id, start_at=start_at, access_token=access_token
+    )
 
 
 def _headers(access_token: str) -> dict[str, str]:
@@ -134,12 +154,17 @@ async def recover_stale_claims(
 
 
 async def claim_send_batch(
-    session: AsyncSession, limit: int = 100, *, test_user_id: int | None = None
+    session: AsyncSession,
+    limit: int = 100,
+    *,
+    start_at: datetime,
+    test_user_id: int | None = None,
 ) -> list[PushDeliveryJob]:
     query = (
         _select_jobs(test_user_id)
         .where(
             PushDeliveryJob.status == "pending",
+            PushDeliveryJob.created_at >= start_at,
             PushDeliveryJob.available_at <= utcnow(),
         )
         .order_by(PushDeliveryJob.created_at.asc())
@@ -390,13 +415,17 @@ async def purge_terminal_jobs(session: AsyncSession, retention_days: int = 30) -
 
 
 async def run_once(
-    session: AsyncSession, access_token: str, *, test_user_id: int | None = None
+    session: AsyncSession,
+    access_token: str,
+    *,
+    start_at: datetime,
+    test_user_id: int | None = None,
 ) -> Counter:
     counts: Counter = Counter()
     counts["stale_recovered"] = await recover_stale_claims(session, test_user_id=test_user_id)
     if test_user_id is None:
         counts["purged"] = await purge_terminal_jobs(session)
-    send_jobs = await claim_send_batch(session, test_user_id=test_user_id)
+    send_jobs = await claim_send_batch(session, start_at=start_at, test_user_id=test_user_id)
     counts.update(
         await process_send_batch(session, send_jobs, access_token, test_user_id=test_user_id)
     )
@@ -414,14 +443,17 @@ async def run_forever(session_factory) -> None:
     elif config.test_user_id is not None:
         logger.info("Push delivery worker enabled for a test account")
     while True:
-        if not config.enabled:
+        if config.start_at is None:
             await asyncio.sleep(10)
             continue
         counts: Counter = Counter()
         async with session_factory() as session:
             try:
                 counts = await run_once(
-                    session, config.access_token, test_user_id=config.test_user_id
+                    session,
+                    config.access_token,
+                    start_at=config.start_at,
+                    test_user_id=config.test_user_id,
                 )
                 await session.commit()
                 if sum(counts.values()):
