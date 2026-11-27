@@ -40,9 +40,10 @@ class PublicApiCacheMiddleware:
                     or "no-store" in existing_policy
                     or "private" in existing_policy
                 )
-                headers["Cache-Control"] = (
-                    _PRIVATE_CACHE_CONTROL if private else _PUBLIC_CACHE_CONTROL
-                )
+                if private:
+                    headers["Cache-Control"] = _PRIVATE_CACHE_CONTROL
+                elif "Cache-Control" not in headers:
+                    headers["Cache-Control"] = _PUBLIC_CACHE_CONTROL
                 # Anonymous catalog responses must not satisfy later requests
                 # carrying an account's credentials at the same URL.
                 vary = {

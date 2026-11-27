@@ -131,20 +131,26 @@ def test_cache_variation_preserves_cors_origin(client):
     assert_varies_by_viewer(response)
 
 
-def test_explicit_private_response_and_existing_variation_are_preserved(client, monkeypatch):
+@pytest.mark.parametrize(
+    "cache_control",
+    ["private, no-store", "no-cache", "max-age=0", "public, max-age=0, must-revalidate"],
+)
+def test_explicit_response_policy_and_existing_variation_are_preserved(
+    client, monkeypatch, cache_control
+):
     monkeypatch.setattr(
         public_service,
         "get_sitemap_players",
         AsyncMock(
             return_value=JSONResponse(
-                [], headers={"Cache-Control": "private, no-store", "Vary": "Accept-Language"}
+                [], headers={"Cache-Control": cache_control, "Vary": "Accept-Language"}
             )
         ),
     )
     response = client.get("/api/public/sitemap/players")
 
     assert response.status_code == 200
-    assert response.headers["Cache-Control"] == "private, no-store"
+    assert response.headers["Cache-Control"] == cache_control
     assert "accept-language" in response.headers["Vary"].lower()
     assert_varies_by_viewer(response)
 
