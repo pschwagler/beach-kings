@@ -76,12 +76,12 @@ install:
 	@echo "Setting up Python virtual environment..."
 	@if [ ! -d "venv" ]; then \
 		PYTHON_CMD=""; \
-		for cmd in python3.12 python3.11 python3.10 python3.9 python3.8 python3; do \
+		for cmd in python3.15 python3.14 python3.13 python3.12 python3; do \
 			if command -v $$cmd >/dev/null 2>&1; then \
 				VERSION=$$($$cmd --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1); \
 				MAJOR=$$(echo $$VERSION | cut -d. -f1); \
 				MINOR=$$(echo $$VERSION | cut -d. -f2); \
-				if [ "$$MAJOR" -eq 3 ] && [ "$$MINOR" -ge 8 ]; then \
+				if [ "$$MAJOR" -eq 3 ] && [ "$$MINOR" -ge 12 ]; then \
 					PYTHON_CMD=$$cmd; \
 					echo "Found $$cmd (Python $$VERSION)"; \
 					break; \
@@ -89,8 +89,8 @@ install:
 			fi; \
 		done; \
 		if [ -z "$$PYTHON_CMD" ]; then \
-			echo "❌ ERROR: Python 3.8+ is required but not found."; \
-			echo "Please install Python 3.8 or higher and try again."; \
+			echo "❌ ERROR: Python 3.12+ is required but not found."; \
+			echo "Please install Python 3.12 or higher and try again."; \
 			exit 1; \
 		fi; \
 		$$PYTHON_CMD -m venv venv; \
@@ -223,7 +223,7 @@ clean-venv:
 	rm -rf venv
 	@echo "✅ Virtual environment removed!"
 	@echo ""
-	@echo "Run 'make install' to create a new venv with Python 3.8+"
+	@echo "Run 'make install' to create a new venv with Python 3.12+"
 
 migrate:
 	@echo "Running database migrations..."

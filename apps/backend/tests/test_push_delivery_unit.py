@@ -108,11 +108,54 @@ def test_safe_payload_drops_external_link_url():
     assert payload["data"]["linkUrl"] is None
 
 
-def test_worker_requires_access_token_when_enabled(monkeypatch):
-    monkeypatch.setenv("PUSH_DELIVERY_ENABLED", "true")
-    monkeypatch.delenv("EXPO_ACCESS_TOKEN", raising=False)
+@pytest.mark.parametrize(("global_enabled", "test_user_id"), [("true", ""), ("false", "42")])
+def test_worker_requires_access_token_when_enabled(monkeypatch, global_enabled, test_user_id):
+    monkeypatch.setenv("PUSH_DELIVERY_ENABLED", global_enabled)
+    monkeypatch.setenv("PUSH_DELIVERY_TEST_USER_ID", test_user_id)
+    monkeypatch.setenv("EXPO_ACCESS_TOKEN", " ")
     with pytest.raises(RuntimeError, match="requires EXPO_ACCESS_TOKEN"):
         push_worker.validate_worker_config()
+
+
+@pytest.mark.parametrize("test_user_id", ["junk-account", " ", "-2", "0", "1,2", "2147483648"])
+@pytest.mark.asyncio
+async def test_worker_rejects_invalid_test_account_before_opening_session(
+    monkeypatch, test_user_id
+):
+    monkeypatch.setenv("PUSH_DELIVERY_ENABLED", "false")
+    monkeypatch.setenv("PUSH_DELIVERY_TEST_USER_ID", test_user_id)
+    monkeypatch.setenv("EXPO_ACCESS_TOKEN", "synthetic")
+    session_factory = MagicMock()
+
+    with pytest.raises(RuntimeError, match="must be a positive user ID") as error:
+        await push_worker.run_forever(session_factory)
+
+    assert str(error.value) == "PUSH_DELIVERY_TEST_USER_ID must be a positive user ID"
+    session_factory.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_worker_rejects_combined_delivery_modes_before_opening_session(monkeypatch):
+    monkeypatch.setenv("PUSH_DELIVERY_ENABLED", "true")
+    monkeypatch.setenv("PUSH_DELIVERY_TEST_USER_ID", "42")
+    monkeypatch.setenv("EXPO_ACCESS_TOKEN", "synthetic")
+    session_factory = MagicMock()
+
+    with pytest.raises(RuntimeError, match="requires PUSH_DELIVERY_ENABLED=false"):
+        await push_worker.run_forever(session_factory)
+    session_factory.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_disabled_worker_does_not_open_session(monkeypatch):
+    for name in ("PUSH_DELIVERY_ENABLED", "PUSH_DELIVERY_TEST_USER_ID", "EXPO_ACCESS_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    session_factory = MagicMock()
+
+    with patch.object(push_worker.asyncio, "sleep", new=AsyncMock(side_effect=StopAsyncIteration)):
+        with pytest.raises(StopAsyncIteration):
+            await push_worker.run_forever(session_factory)
+    session_factory.assert_not_called()
 
 
 def test_retry_is_bounded(monkeypatch):
