@@ -46,9 +46,7 @@ class PublicApiCacheMiddleware:
                     headers["Cache-Control"] = _PUBLIC_CACHE_CONTROL
                 # Anonymous catalog responses must not satisfy later requests
                 # carrying an account's credentials at the same URL.
-                vary = {
-                    value.strip().lower() for value in headers.get("Vary", "").split(",")
-                }
+                vary = {value.strip().lower() for value in headers.get("Vary", "").split(",")}
                 for name in ("Authorization", "Cookie"):
                     if "*" not in vary and name.lower() not in vary:
                         headers.add_vary_header(name)

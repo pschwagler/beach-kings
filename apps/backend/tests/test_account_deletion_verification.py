@@ -48,8 +48,13 @@ async def test_delete_verification_metadata_and_jobs_for_only_owned_identifiers(
     normalized_email = f"delete-{uuid4().hex}@beachleague.test"
     phone = "+15551111111"
     owner = User(
-        email=(f"  {normalized_email.upper()}  " if identifiers in {"email_only", "both"}
-               else "   " if identifiers == "blank" else None),
+        email=(
+            f"  {normalized_email.upper()}  "
+            if identifiers in {"email_only", "both"}
+            else "   "
+            if identifiers == "blank"
+            else None
+        ),
         phone_number=phone if identifiers in {"phone_only", "both"} else None,
         apple_id=f"synthetic-apple-{uuid4().hex}",
         is_verified=True,
@@ -72,7 +77,9 @@ async def test_delete_verification_metadata_and_jobs_for_only_owned_identifiers(
     assert await user_service.execute_account_deletion(db_session, owner.id) is True
 
     if owned:
-        assert await remaining_ids(db_session, VerificationCode, [row[0] for row in owned]) == set()
+        assert (
+            await remaining_ids(db_session, VerificationCode, [row[0] for row in owned]) == set()
+        )
         assert await remaining_ids(db_session, AuthDeliveryJob, [row[1] for row in owned]) == set()
     assert await remaining_ids(db_session, VerificationCode, [row[0] for row in neighbors]) == {
         row[0] for row in neighbors
