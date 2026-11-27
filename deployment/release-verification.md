@@ -69,6 +69,25 @@ Keep the public launch timestamp on worker restarts. Verify delivery from a new
 application event and confirm that new sends only claim jobs created at or after
 the launch timestamp. Earlier ticketed jobs can still receive receipt updates.
 
+## Recreate or roll back the push worker
+
+Before turning on either delivery mode, verify that the running release includes
+the launch cutoff. When applying configuration without a full deployment, use
+the current production manifest's backend image reference, including its digest.
+Recreate only `push-worker` from the production checkout.
+
+```bash
+: "${DEPLOYED_BACKEND_IMAGE:?Set this to the backend image digest from the production manifest}"
+ENV=production BACKEND_IMAGE="$DEPLOYED_BACKEND_IMAGE" \
+  docker-compose -f docker-compose.yml up -d --no-deps --force-recreate push-worker
+```
+
+Before rolling back to a release that predates the cutoff, stop `push-worker`.
+Persist `PUSH_DELIVERY_ENABLED=false` and clear `PUSH_DELIVERY_TEST_USER_ID` in
+protected deployment configuration before deploying or restarting it. Earlier
+releases ignore `PUSH_DELIVERY_START_AT` and can send the historical backlog if
+started with delivery enabled.
+
 ## Release and audit scope
 
 Push CI on main gates automatic web/API rollout. Mobile checks run on PRs and
