@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -253,11 +253,85 @@ describe('LeagueMatchesTab — active session styling (mine)', () => {
   });
 });
 
+describe.each(['all', 'mine'] as const)('LeagueMatchesTab — %s order', (mode) => {
+  it('pins active sessions and orders each group by play date across formats', async () => {
+    const sessions = [
+      { id: 400, date: '2024-12-31', isActive: false },
+      { id: 100, date: '1/9/2025', isActive: false },
+      { id: 500, date: '2025-02-30', isActive: false },
+      { id: 200, date: '2025-1-9', isActive: false },
+      { id: 600, date: null, isActive: false },
+      { id: 700, date: '2024-11-30', isActive: true },
+      { id: 50, date: '12/15/2024', isActive: true },
+    ];
+    mockGetLeagueSessions.mockResolvedValue(
+      sessions.map(({ id, date, isActive }) => ({
+        ...LEAGUE_SESSIONS[isActive ? 0 : 1], id, date,
+      })),
+    );
+    // League-wide games can have null dates, making the raw session dates
+    // the fallback. My Games takes its dates from the games endpoint.
+    mockGetLeagueGames.mockResolvedValue({
+      games: sessions.map(({ id, isActive }) => ({
+        ...(isActive ? ALL_GAME_ACTIVE : ALL_GAME_SUBMITTED),
+        id, session_id: id, session_date: null,
+      })),
+      total: sessions.length,
+    });
+    mockGetMyGames.mockResolvedValue({
+      games: sessions.map(({ id, date, isActive }) => ({
+        ...(isActive ? MY_GAME_ACTIVE : MY_GAME_SUBMITTED),
+        id, session_id: id, session_date: date,
+      })),
+      total: sessions.length,
+    });
+
+    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+    if (mode === 'mine') {
+      fireEvent.press(screen.getByTestId('league-games-mode-mine'));
+    }
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId(/^session-card-\d+$/).map((card) => card.props.testID),
+      ).toEqual(
+        // Same-day and undated sessions use descending IDs.
+        [50, 700, 200, 100, 400, 600, 500].map((id) => `session-card-${id}`),
+      );
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // All Games rendering
 // ---------------------------------------------------------------------------
 
 describe('LeagueMatchesTab — All Games rendering', () => {
+  it('uses an edited session date even when game rows still have the old date', async () => {
+    mockGetLeagueSessions.mockResolvedValue([
+      { ...LEAGUE_SESSIONS[1], id: 100, date: '11/8/2024' },
+      { ...LEAGUE_SESSIONS[1], id: 200, date: 'invalid' },
+    ]);
+    mockGetLeagueGames.mockResolvedValue({
+      games: [
+        { ...ALL_GAME_SUBMITTED, id: 51, session_id: 100, session_date: '2024-06-01' },
+        { ...ALL_GAME_SUBMITTED, id: 52, session_id: 200, session_date: '2024-10-01' },
+      ],
+      total: 2,
+    });
+
+    render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId(/^session-card-\d+$/).map((card) => card.props.testID),
+      ).toEqual(['session-card-100', 'session-card-200']);
+    });
+    expect(screen.getByText('Fri, Nov 8')).toBeTruthy();
+    expect(screen.getByText('Tue, Oct 1')).toBeTruthy();
+    expect(screen.queryByText('Sat, Jun 1')).toBeNull();
+  });
+
   it('loads every page before rendering the complete session history', async () => {
     mockGetLeagueSessions.mockResolvedValue(LEAGUE_SESSIONS);
     mockGetLeagueGames.mockImplementation(
@@ -414,10 +488,31 @@ describe('LeagueMatchesTab — primary recording action', () => {
       render(<LeagueMatchesTab leagueId={5} onRecordGame={onRecordGame} />, { wrapper: makeWrapper() });
       const contentId = state === 'populated' ? 'matches-tab' : `matches-${state}`;
       await screen.findByTestId(contentId);
+      expect(screen.getByText('Add your scores')).toBeTruthy();
       fireEvent.press(screen.getByRole('button', { name: 'Record a Game' }));
       expect(onRecordGame).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('places the live action and the filter in the same scroll view as the session cards', async () => {
+    mockGetLeagueGames.mockResolvedValue({ games: [ALL_GAME_ACTIVE], total: 1 });
+    mockGetLeagueSessions.mockResolvedValue([LEAGUE_SESSIONS[0]]);
+    const onRecordGame = jest.fn();
+
+    render(
+      <LeagueMatchesTab leagueId={5} liveSessionId={200} onRecordGame={onRecordGame} />,
+      { wrapper: makeWrapper() },
+    );
+
+    const matches = await screen.findByTestId('matches-tab');
+    const list = within(matches);
+    expect(list.getByTestId('league-games-mode-toggle')).toBeTruthy();
+    expect(list.getByTestId('session-card-200')).toBeTruthy();
+    expect(list.getByText('Continue playing')).toBeTruthy();
+    expect(list.queryByText('League session')).toBeNull();
+    fireEvent.press(list.getByRole('button', { name: 'Go to Live Session' }));
+    expect(onRecordGame).toHaveBeenCalledTimes(1);
+  });
 
   it('omits recording when no authorized action is supplied', async () => {
     render(<LeagueMatchesTab leagueId={5} />, { wrapper: makeWrapper() });
