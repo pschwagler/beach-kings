@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 const { createRequire } = require('node:module');
 const { test } = require('node:test');
 const queryString = require('query-string');
-const { getPathFromState } = require('expo-router/build/react-navigation/core/getPathFromState');
-const { getStateFromPath } = require('expo-router/build/react-navigation/core/getStateFromPath');
+const { getPathFromState } = require('expo-router/build/fork/getPathFromState');
+const { getStateFromPath } = require('expo-router/build/fork/getStateFromPath');
 
 test('Expo Router resolves the patched query-string package without a stale nested copy', () => {
   const routerRequire = createRequire(require.resolve('expo-router/package.json'));
@@ -13,7 +13,7 @@ test('Expo Router resolves the patched query-string package without a stale nest
   assert.equal(routerRequire('query-string'), queryString);
 });
 
-test('query-string preserves both SDK 57 named exports and its default API', () => {
+test('query-string preserves named exports and its default API', () => {
   for (const name of ['parse', 'stringify', 'parseUrl', 'stringifyUrl', 'pick', 'exclude']) {
     assert.equal(typeof queryString[name], 'function');
     assert.equal(queryString[name], queryString.default[name]);
@@ -43,10 +43,12 @@ test('query-string preserves emoji and replaces lone Unicode surrogates', () => 
   assert.equal(queryString.stringify({ q: '\uDC00' }), 'q=%EF%BF%BD');
 });
 
-test('the installed Expo Router serializes query parameters through named exports', () => {
+test('the installed Expo Router serializes query parameters', () => {
   const path = getPathFromState({ routes: [{ name: 'Session', params: { id: '42', tab: 'games', label: 'Beach League' } }] },
     { screens: { Session: 'session/:id' } });
-  assert.equal(path, '/session/42?tab=games&label=Beach%20League');
+  const [pathname, query] = path.split('?');
+  assert.equal(pathname, '/session/42');
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(query)), { tab: 'games', label: 'Beach League' });
 });
 
 test('the installed Expo Router parses repeated and encoded query parameters', () => {

@@ -1,5 +1,5 @@
 import React, { createRef } from 'react';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, userEvent, waitFor } from '@testing-library/react-native';
 import { View, TouchableOpacity, type GestureResponderEvent } from 'react-native';
 import SessionDateField from '@/components/screens/Sessions/SessionDateField';
 import InlineSessionDate, { type InlineSessionDateHandle } from '@/components/screens/Sessions/InlineSessionDate';
@@ -96,7 +96,7 @@ it('retains a rejected selected draft in the compact row, can reopen it, then Re
   fireEvent.press(ui.getByTestId('session-date-field'));
   expect(ui.getByTestId('session-date-field-picker').props.value).toEqual(next);
   fireEvent.press(ui.getByTestId('session-date-field-cancel'));
-  fireEvent.press(ui.getByTestId('session-date-retry'));
+  await userEvent.setup().press(ui.getByRole('button', { name: 'Retry session date' }));
   await waitFor(() => expect(ui.queryByTestId('session-date-inline')).toBeNull());
   expect(save).toHaveBeenCalledTimes(2);
 });
