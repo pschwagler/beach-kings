@@ -9,7 +9,6 @@ import logging
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import limiter
@@ -39,14 +38,7 @@ from backend.api.auth_dependencies import get_current_user_optional
 logger = logging.getLogger(__name__)
 
 
-async def _cache_public(response: Response):
-    """Set Cache-Control headers on all public API responses (5min TTL)."""
-    response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"
-
-
-public_router = APIRouter(
-    prefix="/api/public", tags=["public"], dependencies=[Depends(_cache_public)]
-)
+public_router = APIRouter(prefix="/api/public", tags=["public"])
 
 
 @public_router.get("/sitemap/leagues", response_model=List[SitemapLeagueItem])
