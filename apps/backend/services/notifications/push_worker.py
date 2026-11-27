@@ -3,12 +3,14 @@
 import asyncio
 import logging
 import os
+import re
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
 import httpx
-from sqlalchemy import delete, select
+from sqlalchemy import Select, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import DeviceToken, PushDeliveryJob
@@ -30,17 +32,31 @@ class ExpoRequestError(RuntimeError):
         self.transient = transient
 
 
-def delivery_enabled() -> bool:
-    return os.getenv("PUSH_DELIVERY_ENABLED", "false").lower() == "true"
+@dataclass(frozen=True)
+class WorkerConfig:
+    enabled: bool
+    test_user_id: int | None
+    access_token: str = field(repr=False)
 
 
-def validate_worker_config() -> str:
-    access_token = os.getenv("EXPO_ACCESS_TOKEN", "")
-    if delivery_enabled() and not access_token:
-        raise RuntimeError(
-            "PUSH_DELIVERY_ENABLED=true requires EXPO_ACCESS_TOKEN for the push worker"
-        )
-    return access_token
+def validate_worker_config() -> WorkerConfig:
+    global_enabled = os.getenv("PUSH_DELIVERY_ENABLED", "false").lower() == "true"
+    raw_test_user_id = os.getenv("PUSH_DELIVERY_TEST_USER_ID", "")
+    test_user_id = None
+    if raw_test_user_id:
+        if global_enabled:
+            raise RuntimeError("Push delivery test mode requires PUSH_DELIVERY_ENABLED=false")
+        if not re.fullmatch(r"[0-9]{1,10}", raw_test_user_id):
+            raise RuntimeError("PUSH_DELIVERY_TEST_USER_ID must be a positive user ID")
+        test_user_id = int(raw_test_user_id)
+        if not 1 <= test_user_id <= 2_147_483_647:
+            raise RuntimeError("PUSH_DELIVERY_TEST_USER_ID must be a positive user ID")
+
+    enabled = global_enabled or test_user_id is not None
+    access_token = os.getenv("EXPO_ACCESS_TOKEN", "").strip()
+    if enabled and not access_token:
+        raise RuntimeError("Active push delivery requires EXPO_ACCESS_TOKEN for the push worker")
+    return WorkerConfig(enabled=enabled, test_user_id=test_user_id, access_token=access_token)
 
 
 def _headers(access_token: str) -> dict[str, str]:
@@ -89,19 +105,25 @@ async def get_expo_receipts(ticket_ids: list[str], access_token: str) -> dict[st
     return receipts
 
 
-async def recover_stale_claims(session: AsyncSession, stale_minutes: int = 10) -> int:
-    jobs = list(
-        (
-            await session.execute(
-                select(PushDeliveryJob)
-                .where(
-                    PushDeliveryJob.status.in_(["processing", "receipt_checking"]),
-                    PushDeliveryJob.claimed_at < utcnow() - timedelta(minutes=stale_minutes),
-                )
-                .with_for_update(skip_locked=True)
-            )
-        ).scalars()
+def _select_jobs(test_user_id: int | None) -> Select[tuple[PushDeliveryJob]]:
+    query = select(PushDeliveryJob)
+    if test_user_id is not None:
+        query = query.where(PushDeliveryJob.user_id == test_user_id)
+    return query
+
+
+async def recover_stale_claims(
+    session: AsyncSession, stale_minutes: int = 10, *, test_user_id: int | None = None
+) -> int:
+    query = (
+        _select_jobs(test_user_id)
+        .where(
+            PushDeliveryJob.status.in_(["processing", "receipt_checking"]),
+            PushDeliveryJob.claimed_at < utcnow() - timedelta(minutes=stale_minutes),
+        )
+        .with_for_update(skip_locked=True)
     )
+    jobs = (await session.scalars(query)).all()
     for job in jobs:
         job.status = "ticketed" if job.expo_ticket_id else "pending"
         job.claimed_at = None
@@ -111,21 +133,20 @@ async def recover_stale_claims(session: AsyncSession, stale_minutes: int = 10) -
     return len(jobs)
 
 
-async def claim_send_batch(session: AsyncSession, limit: int = 100) -> list[PushDeliveryJob]:
-    jobs = list(
-        (
-            await session.execute(
-                select(PushDeliveryJob)
-                .where(
-                    PushDeliveryJob.status == "pending",
-                    PushDeliveryJob.available_at <= utcnow(),
-                )
-                .order_by(PushDeliveryJob.created_at.asc())
-                .with_for_update(skip_locked=True)
-                .limit(min(limit, 100))
-            )
-        ).scalars()
+async def claim_send_batch(
+    session: AsyncSession, limit: int = 100, *, test_user_id: int | None = None
+) -> list[PushDeliveryJob]:
+    query = (
+        _select_jobs(test_user_id)
+        .where(
+            PushDeliveryJob.status == "pending",
+            PushDeliveryJob.available_at <= utcnow(),
+        )
+        .order_by(PushDeliveryJob.created_at.asc())
+        .with_for_update(skip_locked=True)
+        .limit(min(limit, 100))
     )
+    jobs = list(await session.scalars(query))
     for job in jobs:
         job.status = "processing"
         job.claimed_at = utcnow()
@@ -134,22 +155,21 @@ async def claim_send_batch(session: AsyncSession, limit: int = 100) -> list[Push
     return jobs
 
 
-async def claim_receipt_batch(session: AsyncSession, limit: int = 100) -> list[PushDeliveryJob]:
-    jobs = list(
-        (
-            await session.execute(
-                select(PushDeliveryJob)
-                .where(
-                    PushDeliveryJob.status == "ticketed",
-                    PushDeliveryJob.available_at <= utcnow(),
-                    PushDeliveryJob.expo_ticket_id.is_not(None),
-                )
-                .order_by(PushDeliveryJob.available_at.asc())
-                .with_for_update(skip_locked=True)
-                .limit(min(limit, 100))
-            )
-        ).scalars()
+async def claim_receipt_batch(
+    session: AsyncSession, limit: int = 100, *, test_user_id: int | None = None
+) -> list[PushDeliveryJob]:
+    query = (
+        _select_jobs(test_user_id)
+        .where(
+            PushDeliveryJob.status == "ticketed",
+            PushDeliveryJob.available_at <= utcnow(),
+            PushDeliveryJob.expo_ticket_id.is_not(None),
+        )
+        .order_by(PushDeliveryJob.available_at.asc())
+        .with_for_update(skip_locked=True)
+        .limit(min(limit, 100))
     )
+    jobs = list(await session.scalars(query))
     for job in jobs:
         job.status = "receipt_checking"
         job.claimed_at = utcnow()
@@ -189,7 +209,11 @@ def _retry_or_fail(job: PushDeliveryJob, code: str, *, transient: bool) -> None:
 
 
 async def process_send_batch(
-    session: AsyncSession, jobs: list[PushDeliveryJob], access_token: str
+    session: AsyncSession,
+    jobs: list[PushDeliveryJob],
+    access_token: str,
+    *,
+    test_user_id: int | None = None,
 ) -> Counter:
     counts: Counter = Counter()
     eligible: list[tuple[PushDeliveryJob, DeviceToken, dict[str, Any]]] = []
@@ -200,9 +224,17 @@ async def process_send_batch(
     )
 
     for job in jobs:
-        token = (
-            await session.get(DeviceToken, job.device_token_id) if job.device_token_id else None
-        )
+        token = None
+        if test_user_id is not None and job.device_token_id is not None:
+            # Keep ownership stable through the provider request. Registration
+            # can otherwise transfer this installation after the ownership check.
+            token = await session.scalar(
+                select(DeviceToken)
+                .where(DeviceToken.id == job.device_token_id, DeviceToken.user_id == test_user_id)
+                .with_for_update(read=True)
+            )
+        elif job.device_token_id is not None:
+            token = await session.get(DeviceToken, job.device_token_id)
         payload = job.payload if isinstance(job.payload, dict) else {}
         data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
         notification_type = data.get("type")
@@ -276,7 +308,7 @@ async def process_send_batch(
             counts["accepted"] += 1
             continue
         code = _expo_error_code(ticket)
-        if code == "DeviceNotRegistered":
+        if code == "DeviceNotRegistered" and test_user_id is None:
             await _remove_invalid_token(session, job)
         _retry_or_fail(
             job,
@@ -289,7 +321,11 @@ async def process_send_batch(
 
 
 async def process_receipt_batch(
-    session: AsyncSession, jobs: list[PushDeliveryJob], access_token: str
+    session: AsyncSession,
+    jobs: list[PushDeliveryJob],
+    access_token: str,
+    *,
+    test_user_id: int | None = None,
 ) -> Counter:
     counts: Counter = Counter()
     if not jobs:
@@ -329,7 +365,9 @@ async def process_receipt_batch(
             counts["delivered"] += 1
         else:
             code = _expo_error_code(receipt)
-            if code == "DeviceNotRegistered":
+            # Deleting an installation can clear its foreign key on jobs from
+            # previous owners, even if the test account owns it now.
+            if code == "DeviceNotRegistered" and test_user_id is None:
                 await _remove_invalid_token(session, job)
             _retry_or_fail(
                 job,
@@ -351,29 +389,40 @@ async def purge_terminal_jobs(session: AsyncSession, retention_days: int = 30) -
     return result.rowcount
 
 
-async def run_once(session: AsyncSession, access_token: str) -> Counter:
+async def run_once(
+    session: AsyncSession, access_token: str, *, test_user_id: int | None = None
+) -> Counter:
     counts: Counter = Counter()
-    counts["stale_recovered"] = await recover_stale_claims(session)
-    counts["purged"] = await purge_terminal_jobs(session)
-    send_jobs = await claim_send_batch(session)
-    counts.update(await process_send_batch(session, send_jobs, access_token))
-    receipt_jobs = await claim_receipt_batch(session)
-    counts.update(await process_receipt_batch(session, receipt_jobs, access_token))
+    counts["stale_recovered"] = await recover_stale_claims(session, test_user_id=test_user_id)
+    if test_user_id is None:
+        counts["purged"] = await purge_terminal_jobs(session)
+    send_jobs = await claim_send_batch(session, test_user_id=test_user_id)
+    counts.update(
+        await process_send_batch(session, send_jobs, access_token, test_user_id=test_user_id)
+    )
+    receipt_jobs = await claim_receipt_batch(session, test_user_id=test_user_id)
+    counts.update(
+        await process_receipt_batch(session, receipt_jobs, access_token, test_user_id=test_user_id)
+    )
     return counts
 
 
 async def run_forever(session_factory) -> None:
-    access_token = validate_worker_config()
-    if not delivery_enabled():
+    config = validate_worker_config()
+    if not config.enabled:
         logger.info("Push delivery worker disabled")
+    elif config.test_user_id is not None:
+        logger.info("Push delivery worker enabled for a test account")
     while True:
-        if not delivery_enabled():
+        if not config.enabled:
             await asyncio.sleep(10)
             continue
         counts: Counter = Counter()
         async with session_factory() as session:
             try:
-                counts = await run_once(session, access_token)
+                counts = await run_once(
+                    session, config.access_token, test_user_id=config.test_user_id
+                )
                 await session.commit()
                 if sum(counts.values()):
                     logger.info(
