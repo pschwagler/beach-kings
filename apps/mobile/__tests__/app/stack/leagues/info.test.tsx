@@ -882,7 +882,6 @@ describe('LeagueInfoTab — join requests', () => {
 
 describe('LeagueInfoTab — archive league', () => {
   it('lets an admin archive and reopen a league after confirmation', async () => {
-    const alert = jest.spyOn(Alert, 'alert');
     mockUpdateLeague.mockImplementation(async (_id, data) => {
       const updated = { ...MOCK_LEAGUE, ...data };
       mockGetLeague.mockResolvedValue(updated);
@@ -895,16 +894,15 @@ describe('LeagueInfoTab — archive league', () => {
       ['Reopen league', false],
     ] as const) {
       fireEvent.press(await screen.findByRole('button', { name: action }));
-      const [title, , buttons] = alert.mock.lastCall!;
-      expect(title).toBe(`${action}?`);
-      await act(async () => {
-        await buttons?.find((button) => button.text === action)?.onPress?.();
+      expect(await screen.findByTestId('archive-league-dialog')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('archive-league-dialog-confirm'));
+      await waitFor(() => {
+        expect(mockUpdateLeague).toHaveBeenLastCalledWith(1, { is_archived: isArchived });
+        expect(screen.queryByTestId('archive-league-dialog')).toBeNull();
       });
-      expect(mockUpdateLeague).toHaveBeenLastCalledWith(1, { is_archived: isArchived });
     }
 
     expect(await screen.findByRole('button', { name: 'Archive league' })).toBeTruthy();
-    alert.mockRestore();
   });
 
   it('keeps archive controls limited to league admins', async () => {
